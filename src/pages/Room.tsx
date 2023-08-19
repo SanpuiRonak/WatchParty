@@ -1,78 +1,124 @@
 import { useParams } from '@solidjs/router';
-import { onMount, type Component } from 'solid-js';
+import { onMount, type Component, Show, createSignal } from 'solid-js';
 import { Peer } from "peerjs";
 import { userID } from '../signals/userID';
+import Command, { Action } from '../Command';
+import Message, { MessageType } from '../Message';
 
 type RoomPageParams = {
     user_id: string;
     room_id: string;
 };
 
+
+
+interface HTMLVideoElementWithCaptureStream extends HTMLVideoElement {
+    captureStream(): MediaStream;
+}
+
+
 const App: Component = () => {
+    let videoPlayer: HTMLVideoElementWithCaptureStream | undefined;
+    const params = useParams<RoomPageParams>();
+    const peer = new Peer(userID());
 
     onMount(() => {
         console.assert(userID() !== null, "userID is null!");
-        const peer = new Peer(userID());
-        if (userID() === params.user_id) {
-            acceptConnections(peer);
-        }
-        else {
-            callHost(peer);
-        }
+
+        //TODO get video from user
+        if (videoPlayer) videoPlayer.src = "/assets/Sintel.2010.1080p.webm";
+        else console.error("videoPlayer is not defined!");
+
+        startPeerConnection();
     });
 
-    const acceptConnections = (peer: Peer) => {
-        // user is the host, accept connections
-        console.log("User is the host! Accepting connections...");
-        peer.on("connection", (conn) => {
-            conn.on("data", (data) => {
-                // Will print 'hi!'
-                console.log(data);
-            });
-            conn.on("open", () => {
-                console.log("Connection open");
-                conn.send("hello!");
-            });
-            conn.on("iceStateChanged", (data) => {
-                // Will print 'hi!'
-                console.log("iceStateChanged", data);
-            });
-            conn.on("close", () => {
-                // Will print 'hello!'
-                console.error("closed");
-            });
-            conn.on("error", (error) => {
-                // Will print 'hello!'
-                console.error(error);
+    const startPeerConnection = () => {
+        peer.on('open', _id => {
+            if (userID() === params.user_id) {
+                acceptConnectionsFromParticipant(peer);
+            }
+            else {
+                acceptCallFromHost(peer);
+                connectToHost(peer);
+            }
+        });
+    }
+
+    const acceptConnectionsFromParticipant = (peer: Peer) => {
+        peer.on('connection', function (conn) {
+            conn.on('open', function () {
+                conn.on('data', function (data) {
+                    hostMessageHandler(peer, data);
+                });
             });
         });
     }
 
-  
-    const callHost = (peer: Peer) => {
-        console.log(`user is not the host, calling ${params.user_id}`);
-        const conn = peer.connect(params.user_id);
-       
-        conn.on("open", () => {
-            console.log("Connection open");
-            conn.send("hi!");
+    const connectToHost = (peer: Peer) => {
+        const conn = peer.connect(
+            params.user_id,
+            {
+                reliable: true,
+            });
+        conn.on('open', function () {
+            conn.on('data', function (data) {
+                console.log('Data Received', data);
+            });
+            conn.send(new Message(MessageType.participantID, { participantID: userID() }));
         });
-        conn.on("data", (data) => {
-            console.log(data);
-        });
-        conn.on("close", () => {
-            console.error("closed");
-        });
-        conn.on("error", (error) => {
-            console.error(error);
-        });
-
     }
-    const params = useParams<RoomPageParams>();
+
+    const acceptCallFromHost = (peer: Peer) => {
+        peer.on('call', function (call) {
+            call.answer();
+            call.on('stream', function (stream) {
+                //TODO make sure videoPlayer is defined
+                if (!videoPlayer) {
+                    console.error("videoPlayer is not defined!");
+                    return;
+                }
+                videoPlayer.srcObject = stream;
+            });
+        }
+        );
+    }
+
+    const hostMessageHandler = (peer: Peer, message: any) => {
+        if (!message.type) {
+            console.error("No message type provided!", message);
+            return;
+        }
+
+        switch (message.type) {
+            case MessageType.participantID:
+                if (!message.data.participantID) {
+                    console.error("No participant ID provided!", message);
+                    return;
+                }
+                callParticipant(peer, message.data.participantID);
+                break;
+            case MessageType.command:
+                console.log("Command: ", message.data);
+                break;
+        }
+    }
+
+    const callParticipant = (peer: Peer, participantID: string) => {
+        if (!videoPlayer) {
+            console.error("videoPlayer is not defined!");
+            return;
+        }
+        const stream = videoPlayer.captureStream();
+        peer.call(participantID, stream);
+    }
 
     return (
         <div>
-            {params.room_id}
+            <p>User ID: {userID()} {(userID() === params.user_id) ? " 👑" : ""}</p>
+            <p>Room ID: {params.room_id}</p>
+            <video ref={videoPlayer} controls autoplay muted width="100%">
+                Your browser does not support the video tag.
+            </video>
         </div>
     );
 };

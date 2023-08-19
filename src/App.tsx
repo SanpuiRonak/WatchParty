@@ -4,19 +4,19 @@ import { setUserID } from './signals/userID';
 
 const App: Component = () => {
 
-    const generateIDIfNotExists = () => {
-        if (!localStorage.getItem('user_id')) {
-            localStorage.setItem('user_id', uuidv4());
-        }
-        setUserID(localStorage.getItem('user_id')!);
+  const generateIDIfNotExists = () => {
+    if (!localStorage.getItem('user_id')) {
+      localStorage.setItem('user_id', uuidv4());
     }
-    onMount(() => {
-        generateIDIfNotExists();
-    });
+    setUserID(localStorage.getItem('user_id')!);
+  }
+  onMount(() => {
+    generateIDIfNotExists();
+  });
 
-    return (
-        <>   </>
-    );
+  return (
+    <></>
+  );
 };
 
 export default App;
