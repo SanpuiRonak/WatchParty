@@ -1,0 +1,27 @@
+# See .github/workflows/example.yml
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy 🚀
+    runs-on: ubuntu-latest
+    steps:  
+    - uses: Sauloxd/review-apps@v2.0.0
+      with:
+        branch: "gh-pages" # The branch you chose to be your github-pages source
+        apps: |
+          {
+            "dev": {
+              "build": "npm run build",
+              "dist": "dist/dev"
+            },
+            "prod": {
+              "build": "npm run build",
+              "dist": "dist"
+            }
+          }
