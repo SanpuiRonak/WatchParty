@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
 // import devtools from 'solid-devtools/vite';
 
+//TODO set repo name dynamically
 export default defineConfig({
   plugins: [
     /* 
@@ -15,6 +16,8 @@ export default defineConfig({
     port: 3000,
   },
   build: {
+    outDir: 'build',
     target: 'esnext',
   },
+  base: '/WatchParty/',
 });
